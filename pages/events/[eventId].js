@@ -16,6 +16,7 @@ function EventDetailPage(params) {
   if (!event) {
     return (
       <Fragment>
+        <h1> THis is a huge header</h1>
         <ErrorAlert>
           <p>No Events found! </p>
           <div className="center">

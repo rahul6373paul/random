@@ -31,6 +31,8 @@ jobs:
     needs: check
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     env:
       RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
     steps:
@@ -86,6 +88,20 @@ jobs:
           name: blocktime-apk
           path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
+
+      # A release asset is a direct .apk link. Actions artifacts download as a ZIP,
+      # which is awkward to open and install from a phone.
+      - name: Publish a directly installable download
+        if: steps.signing.outputs.configured == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view latest >/dev/null 2>&1 || gh release create latest \
+            --title "BlockTime (latest build)" \
+            --notes "Signed APK built from the latest commit. Open this page on the phone and tap the .apk to install." \
+            --prerelease
+          gh release upload latest \
+            app/build/outputs/apk/release/app-release.apk#BlockTime.apk --clobber
 
       - name: Remove keystore
         if: always()

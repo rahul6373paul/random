@@ -76,8 +76,10 @@ under **Settings → Secrets and variables → Actions**, using the values the s
 | `RELEASE_KEY_ALIAS` | `blocktime` |
 | `RELEASE_KEY_PASSWORD` | your password |
 
-Every push then produces a signed `blocktime-apk` artifact on the workflow run, downloadable
-from the phone's browser. Delete the `.base64` file once the secret is saved.
+Every push then produces a signed APK two ways: as a workflow artifact, and as a direct download
+under **Releases → BlockTime (latest build)**. Use the release link on a phone — tapping the
+`.apk` there installs it straight away, whereas the artifact arrives as a ZIP you would have to
+unpack first. Delete the `.base64` file once the secret is saved.
 
 ## Step 4 — Install on the phone
 

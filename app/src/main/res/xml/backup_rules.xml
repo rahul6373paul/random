@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Settings can be restored; nothing else is stored on device. -->
+    <include domain="file" path="datastore/" />
+</full-backup-content>

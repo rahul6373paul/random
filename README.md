@@ -50,6 +50,11 @@ The scheduling logic (free slots, conflicts, merged busy intervals, next-fit slo
 `domain/Scheduling.kt` with no Android or network dependencies, and is covered by
 `app/src/test/java/com/blocktime/domain/SchedulingTest.kt`.
 
+## Installing it
+
+See **[INSTALL.md](INSTALL.md)** for the step-by-step path from this repo to a working app on a
+phone. The short version: create a signing key, register its SHA-1 with Google, build, sideload.
+
 ## Setting up Google access (required before the app will run)
 
 The app talks to Google as *your users*, using OAuth. Nothing works until you register the app
@@ -127,8 +132,10 @@ Send `app/build/outputs/apk/release/app-release.apk`. They enable "install unkno
 whatever app they receive it in. Every partner's Google address still has to be a Test user
 (or in your Workspace domain) from step 2.
 
-The included GitHub Actions workflow (`.github/workflows/android.yml`) builds a debug APK on
-every push and attaches it to the run, so you can also just send them a link to the artifact.
+The included GitHub Actions workflow (`.github/workflows/android.yml`) builds a **signed** APK
+on every push and attaches it to the run, so you can also just send a link to the artifact. It
+needs the four `RELEASE_*` repository secrets described in [INSTALL.md](INSTALL.md); without
+them it still runs tests, lint and an unsigned release build, but produces nothing installable.
 
 **b) Google Play internal testing.** Up to 100 testers, installs and updates through the Play
 Store like a normal app, no "unknown sources" prompt. Requires a Play Console account

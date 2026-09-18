@@ -7,7 +7,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  check:
+    name: Tests and lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,13 +26,78 @@ jobs:
       - name: Lint
         run: ./gradlew lintDebug
 
-      - name: Build debug APK
-        run: ./gradlew assembleDebug
+  apk:
+    name: Signed APK
+    needs: check
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+    steps:
+      - uses: actions/checkout@v4
 
-      # Partners can download this artifact straight from the Actions run.
-      - name: Upload debug APK
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # The APK must be signed with a stable key, otherwise its SHA-1 changes on every
+      # run and Google rejects sign-in for anything but the build you registered.
+      - name: Check for signing key
+        id: signing
+        run: |
+          if [ -n "$RELEASE_KEYSTORE_BASE64" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Restore keystore
+        if: steps.signing.outputs.configured == 'true'
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          echo "$RELEASE_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          cat > keystore.properties <<PROPS
+          storeFile=$RUNNER_TEMP/release.jks
+          storePassword=$KEYSTORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          PROPS
+
+      - name: Build signed release APK
+        if: steps.signing.outputs.configured == 'true'
+        run: ./gradlew assembleRelease
+
+      - name: Confirm the APK is signed
+        if: steps.signing.outputs.configured == 'true'
+        run: |
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -name apksigner | sort | tail -1)"
+          "$APKSIGNER" verify --print-certs app/build/outputs/apk/release/app-release.apk
+
+      - name: Upload APK
+        if: steps.signing.outputs.configured == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: blocktime-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: blocktime-apk
+          path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
+
+      - name: Remove keystore
+        if: always()
+        run: rm -f keystore.properties "$RUNNER_TEMP/release.jks"
+
+      - name: Explain how to enable signing
+        if: steps.signing.outputs.configured == 'false'
+        run: |
+          echo "::notice::No signing key configured, so no installable APK was produced."
+          echo "::notice::Run tools/signing-key.sh and add the four RELEASE_* repository secrets."
+
+      # Without a signing key there is still value in proving the release build compiles.
+      - name: Build unsigned release APK
+        if: steps.signing.outputs.configured == 'false'
+        run: ./gradlew assembleRelease
